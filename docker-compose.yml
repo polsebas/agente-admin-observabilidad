@@ -1,0 +1,47 @@
+services:
+  grafana-mcp:
+    image: mcp/grafana:latest
+    restart: unless-stopped
+    environment:
+      - GRAFANA_URL=${GRAFANA_URL:-http://host.docker.internal:3001}
+      - GRAFANA_SERVICE_ACCOUNT_TOKEN=${GRAFANA_API_KEY:?set GRAFANA_API_KEY}
+    ports:
+      - "8000:8000"
+    command: ["-t", "sse", "-addr", ":8000"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  agentos:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - MODEL_PROVIDER=openai
+      - MODEL_ID=${MODEL_ID:-gpt-5-mini}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:?set OPENAI_API_KEY}
+      - GRAFANA_MCP_URL=http://grafana-mcp:8000
+      - LOKI_MCP_URL=${LOKI_MCP_URL:-http://grafana-mcp:8000}
+      - TEMPO_MCP_URL=${TEMPO_MCP_URL:-http://grafana-mcp:8000}
+      - DB_FILE=/data/agno.db
+    volumes:
+      - agno-data:/data
+    ports:
+      - "7777:7777"
+    depends_on:
+      - grafana-mcp
+
+  agnoui:
+    build:
+      context: ./agent-ui
+      dockerfile: Dockerfile
+    environment:
+      - NEXT_PUBLIC_AGNO_URL=http://agentos:7777
+      - PORT=3000
+    ports:
+      - "3002:3000"
+    depends_on:
+      - agentos
+
+volumes:
+  agno-data:
+

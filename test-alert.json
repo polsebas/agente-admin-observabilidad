@@ -1,0 +1,21 @@
+{
+  "receiver": "agno-webhook",
+  "status": "firing",
+  "alerts": [
+    {
+      "status": "firing",
+      "labels": {
+        "alertname": "HighErrorRate",
+        "severity": "critical",
+        "service": "auth-service"
+      },
+      "annotations": {
+        "summary": "Error rate above 5%",
+        "description": "auth-service experiencing high error rate"
+      },
+      "startsAt": "2025-12-08T10:00:00Z",
+      "fingerprint": "test123"
+    }
+  ]
+}
+
