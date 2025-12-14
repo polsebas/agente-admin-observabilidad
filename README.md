@@ -218,12 +218,12 @@ Usa AgnoUI en http://localhost:3002 o la API directamente:
 │  │  WatchdogAgent                     │ │
 │  │  → Classify, Dedupe, Enrich        │ │
 │  └─────────────┬──────────────────────┘ │
-│                ▼                         │
+│                ▼                        │
 │  ┌────────────────────────────────────┐ │
 │  │  TriageAgent                       │ │
-│  │  → Correlate Metrics/Logs/Traces  │ │
+│  │  → Correlate Metrics/Logs/Traces   │ │
 │  └─────────────┬──────────────────────┘ │
-│                ▼                         │
+│                ▼                        │
 │  ┌────────────────────────────────────┐ │
 │  │  ReportAgent                       │ │
 │  │  → Generate Markdown Report        │ │
