@@ -7,10 +7,11 @@ Comandos prediseñados para consultas comunes sobre el estado del sistema.
 1. [Introducción](#introducción)
 2. [Comandos Disponibles](#comandos-disponibles)
 3. [Modo Híbrido](#modo-híbrido)
-4. [Uso vía API REST](#uso-vía-api-rest)
-5. [Uso vía QueryAgent](#uso-vía-queryagent)
-6. [Ejemplos Prácticos](#ejemplos-prácticos)
-7. [Configuración](#configuración)
+4. [Uso en el Chat (Slash Commands)](#uso-en-el-chat-slash-commands)
+5. [Uso vía API REST](#uso-vía-api-rest)
+6. [Uso vía QueryAgent](#uso-vía-queryagent)
+7. [Ejemplos Prácticos](#ejemplos-prácticos)
+8. [Configuración](#configuración)
 
 ---
 
@@ -243,6 +244,202 @@ Los comandos soportan dos modos de operación:
 
 ---
 
+## Uso en el Chat (Slash Commands)
+
+![Slash Commands Demo](slash-commands-demo.png)
+*Interfaz de AgentUI mostrando la ejecución de `/novedades hoy` con evidencia de verificación y recomendaciones*
+
+Los Quick Commands ahora se pueden ejecutar directamente desde el chat usando **slash commands** con abreviaturas intuitivas.
+
+Cada comando incluye **verificación automática con evidencia** y **recomendaciones inteligentes** para ayudarte a identificar situaciones realmente accionables vs ruido informativo.
+
+### ✨ Características de los Slash Commands
+
+- **Verificación con Evidencia**: Cada comando ejecuta checks adicionales para validar la situación
+- **Recomendaciones Inteligentes**: Sistema de notify/fyi para priorizar alertas
+- **Deduplicación Automática**: TTL de 30 min para evitar notificaciones repetitivas
+- **Prompts Optimizados**: Cada comando tiene un prompt específico para su tarea
+
+### Tabla de Slash Commands
+
+| Comando | Aliases | Ejemplo |
+|---------|---------|---------|
+| **recent-incidents** | `/novedades`, `/nov`, `/incidencias`, `/inc`, `/ri`, `/recientes` | `/novedades hoy` |
+| **health** | `/salud`, `/sal`, `/health`, `/estado` | `/salud` |
+| **post-deployment** | `/deploy`, `/dep`, `/postdeploy`, `/pd` | `/deploy service=auth-service deployment_time=2025-12-10T14:00:00Z` |
+| **trends** | `/tendencias`, `/tend`, `/trends`, `/tr` | `/tendencias period_hours=48` |
+| **daily-digest** | `/digest`, `/dig`, `/diario`, `/dd` | `/digest ayer` |
+| **help** | `/qc`, `/quick`, `/quickhelp`, `/help` | `/qc` |
+
+### Sintaxis
+
+```bash
+/comando [parametros]
+```
+
+**Parámetros soportados:**
+
+1. **Key=Value**: `hours=8`, `severity=critical`, `service=auth-service`, `date=2025-12-09`
+2. **Atajos especiales**:
+   - `hoy` → últimas 24 horas
+   - `ayer` → digest del día anterior
+   - `8h`, `24h`, `48h` → atajo para hours/period_hours
+
+### Ejemplos de Uso en el Chat
+
+```bash
+# Incidencias recientes
+/novedades hoy
+/inc hours=8 severity=critical
+/recientes service=auth-service hours=12
+
+# Salud de servicios
+/salud
+/health services=auth-service,payment-service
+
+# Post-deployment
+/deploy service=auth-service deployment_time=2025-12-10T14:00:00Z
+/dep service=payment-service deployment_time=2025-12-10T16:30:00Z monitoring_window_hours=4
+
+# Tendencias
+/tendencias period_hours=48
+/tr metric=alert_count service=auth-service
+
+# Digest diario
+/digest ayer
+/diario date=2025-12-09
+
+# Ayuda
+/qc
+/help
+```
+
+### Cómo Funciona
+
+1. El chat detecta inputs que empiezan con `/`
+2. Parsea el alias y los parámetros
+3. **Modo híbrido**:
+   - Si se pueden resolver todos los params requeridos → ejecuta directo vía REST (más rápido)
+   - Si faltan params o hay ambigüedad → fallback a QueryAgent (más flexible)
+4. **Workflow de verificación**:
+   - Ejecuta el comando base
+   - Ejecuta checks de evidencia adicionales (ej: health, trends)
+   - Evalúa si la situación es accionable o informativa
+   - Aplica deduplicación (TTL 30 min)
+5. El reporte se muestra en el chat con evidencia y recomendación
+
+### 🔔 Sistema de Recomendaciones
+
+Cada reporte incluye una recomendación que indica si la situación requiere acción:
+
+#### NOTIFY (Accionable) 🔔
+
+**Criterios para NOTIFY:**
+- Alertas **critical** o **major** con servicios degradados
+- Aumento **>50%** en incidencias vs período anterior
+- **Error rate** o **latency** por encima de umbrales configurados
+- Alertas críticas detectadas **post-deployment**
+- Patrón de alertas sostenido (>3 del mismo tipo en 1h)
+- Múltiples servicios impactados simultáneamente
+
+**Ejemplo de salida:**
+
+```markdown
+---
+
+### 🔔 Recomendación: NOTIFY (Accionable)
+
+**Razón**: Sistema degradado: 2 critical, 3 major activas
+
+**Confianza**: 90%
+```
+
+#### FYI (Informativo) ℹ️
+
+**Criterios para FYI:**
+- Alertas **minor** o **info** sin impacto en salud
+- Tendencia estable o descendente (mejorando)
+- Sistema operando normalmente
+- Alertas esporádicas sin patrón
+- Query **duplicada** ejecutada recientemente (dedupe)
+- Problema ya conocido/documentado
+
+**Ejemplo de salida:**
+
+```markdown
+---
+
+### ℹ️ Recomendación: FYI (Informativo)
+
+**Razón**: Análisis completado sin situaciones críticas.
+
+**Confianza**: 50%
+```
+
+### 📋 Evidencia de Verificación
+
+Cada comando ejecuta **checks adicionales** para validar la situación. La evidencia se muestra en un bloque colapsable:
+
+**Ejemplo:**
+
+```markdown
+<details>
+<summary><strong>📋 Evidencia de Verificación</strong> (click para expandir)</summary>
+
+**Check 1**: health_check ✅
+
+- **Query**: `get_active_alerts()`
+- **Resultado**: 0 alertas activas (0 critical, 0 major)
+- **Timestamp**: 2025-12-14 15:30:00
+
+**Check 2**: trends_check ⚠️
+
+- **Query**: `compare_periods(hours=24)`
+- **Resultado**: Período actual: 18, anterior: 12, cambio: +50.0%
+- **Timestamp**: 2025-12-14 15:30:01
+
+</details>
+```
+
+### 🔄 Deduplicación Automática
+
+Para evitar spam, el sistema detecta queries repetitivas:
+
+- **Fingerprint estable**: Basado en comando + params + keywords del resultado
+- **TTL de 30 minutos**: Ventana de cooldown
+- **Nota automática**: Si se detecta duplicado, se marca como FYI con nota
+- **Cache en memoria**: 100 entradas FIFO
+
+**Ejemplo de resultado deduplicado:**
+
+```markdown
+> **Nota**: Esta consulta fue ejecutada recientemente (hace ~15 min). Los datos pueden no haber cambiado significativamente.
+```
+
+### Ventajas de Slash Commands
+
+- ✅ **Más rápido**: No necesita parsing por IA
+- ✅ **Determinístico**: Siempre ejecuta el mismo comando
+- ✅ **Abreviaturas memorables**: `/nov`, `/sal`, `/dep`
+- ✅ **Compatible con lenguaje natural**: Si preferís, podés seguir escribiendo sin `/`
+- ✅ **Verificación automática**: Incluye evidencia y recomendaciones
+- ✅ **Sin ruido**: Deduplicación evita notificaciones repetitivas
+- ✅ **Contexto inteligente**: Cada comando ejecuta checks complementarios
+
+### Checks de Evidencia por Comando
+
+Cada comando ejecuta verificaciones específicas:
+
+| Comando | Checks de Evidencia | Objetivo |
+|---------|---------------------|----------|
+| `recent-incidents` | `health`, `trends` | Confirmar degradación real del sistema |
+| `health` | `recent-incidents` | Contexto de alertas en últimas 24h |
+| `post-deployment` | `trends`, `recent-incidents` | Comparar pre/post y detectar anomalías |
+| `trends` | `health` | Correlacionar tendencias con estado actual |
+| `daily-digest` | (análisis del reporte) | Detectar keywords críticos |
+
+---
+
 ## Uso vía API REST
 
 Los comandos están expuestos como endpoints REST en `/api/quick/*`.
@@ -314,6 +511,56 @@ GET /api/quick/daily-digest?include_all_services=false
 ```bash
 # Ver todos los comandos disponibles
 GET /api/quick/help
+```
+
+### Slash Commands API
+
+Además de los endpoints GET individuales, existe un endpoint POST unificado para slash commands:
+
+```bash
+# Ejecutar cualquier slash command vía API
+POST /api/quick/command
+Content-Type: application/json
+
+{
+  "command": "/novedades hoy"
+}
+
+# Respuesta
+{
+  "report": "# Incidencias Recientes (Últimas 24 horas)\n\n..."
+}
+```
+
+Este endpoint:
+- Parsea el slash command automáticamente
+- Resuelve aliases a comandos canónicos
+- Ejecuta workflow de verificación con evidencia
+- Aplica deduplicación (TTL 30 min)
+- Devuelve reporte + evidencia + recomendación
+- Útil para integraciones externas que quieran usar la sintaxis de slash commands
+
+**Respuesta completa:**
+
+```json
+{
+  "report": "# Incidencias Recientes (Últimas 24 horas)\n\n...",
+  "evidence": [
+    {
+      "source": "health_check",
+      "query": "get_active_alerts()",
+      "result_summary": "0 alertas activas (0 critical, 0 major)",
+      "pass": true,
+      "timestamp": "2025-12-14T15:30:00Z"
+    }
+  ],
+  "recommendation": {
+    "level": "fyi",
+    "reason": "Análisis completado sin situaciones críticas.",
+    "confidence": 0.5
+  },
+  "canonical_command": "recent-incidents"
+}
 ```
 
 ---

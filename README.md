@@ -11,16 +11,22 @@ Sistema de análisis automático de alertas usando **Agno Framework** + **Grafan
 
 ## 🌟 Características
 
+![Slash Commands en Acción](docs/slash-commands-demo.png)
+
 - ✅ **ObservabilityTeam**: Equipo multi-agente para análisis de alertas
   - **WatchdogAgent**: Clasificación de severidad, deduplicación y enriquecimiento de contexto
   - **TriageAgent**: Correlación de métricas (Prometheus), logs (Loki) y traces (Tempo)
   - **ReportAgent**: Generación de reportes markdown con timeline, evidencia y próximos pasos
-- ✅ **Quick Commands**: 5 comandos rápidos de observabilidad
-  - `recent-incidents`: Incidencias recientes con filtros
-  - `health`: Health check de servicios en tiempo real
-  - `post-deployment`: Monitoreo post-deployment automático
-  - `trends`: Análisis de tendencias comparativas
-  - `daily-digest`: Resumen diario automático
+- ✅ **Quick Commands**: 5 comandos rápidos de observabilidad con verificación inteligente
+  - `recent-incidents`: Incidencias recientes con filtros + verificación de salud y tendencias
+  - `health`: Health check de servicios en tiempo real + contexto de incidencias
+  - `post-deployment`: Monitoreo post-deployment automático + análisis de anomalías
+  - `trends`: Análisis de tendencias comparativas + correlación con estado actual
+  - `daily-digest`: Resumen diario automático + detección de incidentes críticos
+  - **Slash Commands**: Ejecutá comandos desde el chat con `/novedades`, `/salud`, `/deploy`, etc.
+  - **Sistema de Recomendaciones**: Cada comando indica si es NOTIFY (accionable) o FYI (informativo)
+  - **Verificación con Evidencia**: Checks automáticos adicionales para validar situaciones
+  - **Deduplicación**: TTL de 30 min para evitar notificaciones repetitivas
 - ✅ **QueryAgent**: Interpreta lenguaje natural para ejecutar quick commands
 - ✅ **Context Engineering**: Configuración avanzada para reportes de alta calidad
 - ✅ **API REST Completa**: Endpoints para webhooks, quick commands y reportes
@@ -103,6 +109,45 @@ uvicorn main:app --host 0.0.0.0 --port 7777
 ---
 
 ## 📖 Uso
+
+### Slash Commands en el Chat (⚡ Nuevo)
+
+![Slash Commands Demo](docs/slash-commands-demo.png)
+*Ejemplo de ejecución de `/novedades hoy` con verificación automática, evidencia y recomendaciones inteligentes*
+
+Ejecutá Quick Commands directamente desde el chat con abreviaturas intuitivas:
+
+```bash
+# Incidencias recientes
+/novedades hoy
+/inc hours=8 severity=critical
+
+# Salud de servicios
+/salud
+/health services=auth-service
+
+# Post-deployment
+/deploy service=auth-service deployment_time=2025-12-10T14:00:00Z
+
+# Tendencias
+/tendencias period_hours=48
+
+# Digest diario
+/digest ayer
+
+# Ayuda
+/qc
+```
+
+**Aliases disponibles:**
+- `/novedades`, `/nov`, `/inc` → recent-incidents
+- `/salud`, `/sal`, `/health` → health check
+- `/deploy`, `/dep`, `/pd` → post-deployment
+- `/tendencias`, `/tend`, `/tr` → trends
+- `/digest`, `/dig`, `/dd` → daily digest
+- `/qc`, `/quick`, `/help` → ayuda
+
+Ver [guía completa de slash commands](docs/QUICK_COMMANDS.md#uso-en-el-chat-slash-commands).
 
 ### Quick Commands (API REST)
 
@@ -212,6 +257,42 @@ Usa AgnoUI en http://localhost:3002 o la API directamente:
 ### Quick Commands
 - **[Guía de Quick Commands](docs/QUICK_COMMANDS.md)**: Documentación completa de comandos rápidos de observabilidad, incluyendo 5 comandos principales, modo híbrido, ejemplos prácticos y casos de uso.
 - **[Resumen de Implementación](QUICK_COMMANDS_IMPLEMENTATION.md)**: Resumen técnico de la implementación, arquitectura, testing y próximos pasos.
+
+#### Slash Commands en el Chat
+
+Ejecutá comandos rápidos directamente desde el chat:
+
+```bash
+# Incidencias recientes
+/novedades hoy              # Últimas 24h
+/inc hours=8 severity=critical
+
+# Salud del sistema
+/salud                      # Todos los servicios
+/health services=auth-service,payment-service
+
+# Post-deployment
+/deploy service=auth-service deployment_time=2025-12-14T14:00:00Z
+
+# Tendencias
+/tendencias period_hours=48
+/tr metric=alert_count
+
+# Digest diario
+/digest ayer
+/dd date=2025-12-09
+
+# Ayuda
+/qc
+```
+
+**Características:**
+- 🔔 **Recomendaciones Inteligentes**: Cada comando indica si es NOTIFY (accionable) o FYI (informativo)
+- 📋 **Verificación con Evidencia**: Checks automáticos adicionales para validar situaciones
+- 🔄 **Deduplicación**: TTL de 30 min para evitar notificaciones repetitivas
+- ⚡ **Abreviaturas**: Aliases cortos como `/nov`, `/sal`, `/dep`, `/tend`, `/dig`
+
+Ver [documentación completa](docs/QUICK_COMMANDS.md) para más detalles sobre aliases, evidencia y criterios de notify/fyi.
 
 ### General
 - **[Índice de Documentación](docs/README.md)**: Punto de entrada a toda la documentación del proyecto.

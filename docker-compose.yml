@@ -6,7 +6,7 @@ services:
       - GRAFANA_URL=${GRAFANA_URL:-http://host.docker.internal:3001}
       - GRAFANA_SERVICE_ACCOUNT_TOKEN=${GRAFANA_API_KEY:?set GRAFANA_API_KEY}
     ports:
-      - "8000:8000"
+      - "8001:8000"
     command: ["-t", "sse", "-addr", ":8000"]
     extra_hosts:
       - "host.docker.internal:host-gateway"

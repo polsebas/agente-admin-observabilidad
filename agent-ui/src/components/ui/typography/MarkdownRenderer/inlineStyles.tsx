@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import Image from 'next/image'
 import Link from 'next/link'
@@ -25,6 +25,8 @@ import type {
 } from './types'
 
 import { PARAGRAPH_SIZES } from '../Paragraph/constants'
+
+type MarkdownImgProps = Omit<ImgProps, 'src'> & { src?: string | Blob }
 
 const filterProps = (props: object) => {
   const newProps = { ...props }
@@ -148,10 +150,27 @@ const Heading6 = ({ className, ...props }: HeadingProps) => (
   <h6 className={cn(className, PARAGRAPH_SIZES.lead)} {...filterProps(props)} />
 )
 
-const Img = ({ src, alt }: ImgProps) => {
+const Img = ({ src, alt }: MarkdownImgProps) => {
   const [error, setError] = useState(false)
 
-  if (!src) return null
+  const resolvedSrc = useMemo(() => {
+    if (!src) return undefined
+    if (typeof src === 'string') return src
+    try {
+      return URL.createObjectURL(src)
+    } catch {
+      return undefined
+    }
+  }, [src])
+
+  useEffect(() => {
+    // Always register cleanup when we have a Blob-based object URL
+    if (typeof src !== 'string' && src instanceof Blob && resolvedSrc) {
+      return () => URL.revokeObjectURL(resolvedSrc)
+    }
+  }, [src, resolvedSrc])
+
+  if (!resolvedSrc) return null
 
   return (
     <div className="w-full max-w-xl">
@@ -159,16 +178,16 @@ const Img = ({ src, alt }: ImgProps) => {
         <div className="flex h-40 flex-col items-center justify-center gap-2 rounded-md bg-secondary/50 text-muted">
           <Paragraph className="text-primary">Image unavailable</Paragraph>
           <Link
-            href={src}
+            href={resolvedSrc}
             target="_blank"
             className="max-w-md truncate underline"
           >
-            {src}
+            {resolvedSrc}
           </Link>
         </div>
       ) : (
         <Image
-          src={src}
+          src={resolvedSrc}
           width={96}
           height={56}
           alt={alt ?? 'Rendered image'}

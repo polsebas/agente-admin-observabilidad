@@ -10,6 +10,7 @@ import useAIResponseStream from './useAIResponseStream'
 import { ToolCall } from '@/types/os'
 import { useQueryState } from 'nuqs'
 import { getJsonMarkdown } from '@/lib/utils'
+import { isSlashCommand, executeSlashCommand } from '@/lib/slashCommands'
 
 const useAIChatStreamHandler = () => {
   const setMessages = useStore((state) => state.setMessages)
@@ -108,6 +109,104 @@ const useAIChatStreamHandler = () => {
         formData.append('message', input)
       }
 
+      const userMessage = formData.get('message') as string
+
+      // Interceptar slash commands
+      if (typeof input === 'string' && isSlashCommand(userMessage)) {
+        try {
+          const endpointUrl = constructEndpointUrl(selectedEndpoint)
+          
+          // Agregar mensaje del usuario
+          addMessage({
+            role: 'user',
+            content: userMessage,
+            created_at: Math.floor(Date.now() / 1000)
+          })
+
+          // Agregar placeholder del agente
+          addMessage({
+            role: 'agent',
+            content: '',
+            tool_calls: [],
+            streamingError: false,
+            created_at: Math.floor(Date.now() / 1000) + 1
+          })
+
+          // Ejecutar slash command
+          const result = await executeSlashCommand(
+            userMessage,
+            endpointUrl,
+            authToken
+          )
+
+          if (result.error) {
+            // Actualizar mensaje del agente con error
+            setMessages((prevMessages) => {
+              const newMessages = [...prevMessages]
+              const lastMessage = newMessages[newMessages.length - 1]
+              if (lastMessage && lastMessage.role === 'agent') {
+                lastMessage.content = `❌ Error ejecutando comando: ${result.error}`
+                lastMessage.streamingError = true
+              }
+              return newMessages
+            })
+            setStreamingErrorMessage(result.error)
+          } else if (result.report) {
+            // Construir reporte completo con evidencia y recomendación
+            let fullReport = result.report
+            
+            // Si hay evidencia, agregarla en formato colapsable
+            if (result.evidence && result.evidence.length > 0) {
+              fullReport += '\n\n<details>\n<summary><strong>📋 Evidencia de Verificación</strong> (click para expandir)</summary>\n\n'
+              
+              result.evidence.forEach((check, idx) => {
+                const statusIcon = check.pass ? '✅' : '⚠️'
+                fullReport += `**Check ${idx + 1}**: ${check.source} ${statusIcon}\n\n`
+                fullReport += `- **Query**: \`${check.query}\`\n`
+                fullReport += `- **Resultado**: ${check.result_summary}\n`
+                fullReport += `- **Timestamp**: ${new Date(check.timestamp).toLocaleString()}\n\n`
+              })
+              
+              fullReport += '</details>\n'
+            }
+            
+            // Si hay recomendación, resaltarla
+            if (result.recommendation) {
+              const rec = result.recommendation
+              const levelIcon = rec.level === 'notify' ? '🔔' : 'ℹ️'
+              const levelText = rec.level === 'notify' ? 'NOTIFY (Accionable)' : 'FYI (Informativo)'
+              const confidencePercent = Math.round(rec.confidence * 100)
+              
+              fullReport += `\n\n---\n\n### ${levelIcon} Recomendación: ${levelText}\n\n`
+              fullReport += `**Razón**: ${rec.reason}\n\n`
+              fullReport += `**Confianza**: ${confidencePercent}%\n`
+            }
+            
+            // Actualizar mensaje del agente con el reporte completo
+            setMessages((prevMessages) => {
+              const newMessages = [...prevMessages]
+              const lastMessage = newMessages[newMessages.length - 1]
+              if (lastMessage && lastMessage.role === 'agent') {
+                lastMessage.content = fullReport
+              }
+              return newMessages
+            })
+          }
+
+          setIsStreaming(false)
+          focusChatInput()
+          return
+        } catch (error) {
+          setStreamingErrorMessage(
+            error instanceof Error ? error.message : String(error)
+          )
+          setIsStreaming(false)
+          focusChatInput()
+          return
+        }
+      }
+
+      // Flujo normal (no slash command)
       setMessages((prevMessages) => {
         if (prevMessages.length >= 2) {
           const lastMessage = prevMessages[prevMessages.length - 1]
@@ -125,7 +224,7 @@ const useAIChatStreamHandler = () => {
 
       addMessage({
         role: 'user',
-        content: formData.get('message') as string,
+        content: userMessage,
         created_at: Math.floor(Date.now() / 1000)
       })
 

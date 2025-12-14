@@ -30,13 +30,25 @@
 
 ### Quick Commands
 
+![Slash Commands Demo](slash-commands-demo.png)
+
 4. **[Quick Commands Guide](QUICK_COMMANDS.md)** 🚀
    - Comandos rápidos de observabilidad
    - 5 comandos principales (incidents, health, post-deploy, trends, digest)
+   - **Slash Commands**: Ejecutá comandos desde el chat (`/novedades`, `/salud`, etc.)
+   - **Sistema de Recomendaciones**: NOTIFY (accionable) vs FYI (informativo)
+   - **Verificación con Evidencia**: Checks automáticos adicionales
+   - **Deduplicación**: TTL de 30 min para evitar notificaciones repetitivas
    - Modo híbrido (query directa vs análisis IA)
    - Uso vía API REST y QueryAgent
    - Ejemplos prácticos y casos de uso
-   - Configuración y troubleshooting
+
+5. **[Slash Commands Visual Guide](SLASH_COMMANDS_VISUAL_GUIDE.md)** 📸
+   - Guía visual con capturas de pantalla
+   - Anatomía completa de un slash command
+   - Interpretación de recomendaciones
+   - Tips de UX y elementos de interfaz
+   - Flujo de ejecución detallado
 
 ---
 
@@ -158,7 +170,14 @@ Para añadir o modificar documentación:
 
 ## 📅 Última Actualización
 
-**Fecha**: 2025-12-10  
-**Versión**: v1.0  
-**Estado**: Context Engineering Completo ✅
+**Fecha**: 2025-12-14  
+**Versión**: v1.1  
+**Estado**: Context Engineering + Slash Commands Completos ✅
+
+### Cambios Recientes (v1.1)
+- ✨ **Slash Commands**: Ejecutá Quick Commands directamente desde el chat
+- 🔔 **Sistema de Recomendaciones**: NOTIFY vs FYI con confianza
+- 📋 **Verificación con Evidencia**: Checks automáticos adicionales
+- 🔄 **Deduplicación**: TTL de 30 min para evitar spam
+- 📸 **Guía Visual**: Documentación con capturas de pantalla
 

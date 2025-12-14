@@ -1,14 +1,17 @@
 # Implementación de Quick Commands - Resumen
 
-**Fecha**: 2025-12-11  
-**Versión**: 1.0  
-**Estado**: ✅ COMPLETADO
+![Slash Commands Demo](docs/slash-commands-demo.png)
+*Ejemplo real de slash command `/novedades hoy` con verificación automática y recomendaciones inteligentes*
+
+**Fecha**: 2025-12-14  
+**Versión**: 1.1  
+**Estado**: ✅ COMPLETADO + SLASH COMMANDS
 
 ---
 
 ## 🎯 Objetivo
 
-Implementar comandos rápidos (quick commands) como Agno tools que permiten consultas prediseñadas para casos de uso comunes en observabilidad.
+Implementar comandos rápidos (quick commands) como Agno tools que permiten consultas prediseñadas para casos de uso comunes en observabilidad, **ahora con soporte de Slash Commands para ejecución directa desde el chat**.
 
 ---
 
@@ -412,10 +415,135 @@ curl "http://localhost:7777/api/quick/recent-incidents?hours=48&analyze_with_ai=
 
 ---
 
+## 🆕 Slash Commands (v1.1 - 2025-12-14)
+
+### Nuevas Características
+
+#### 1. **Sistema de Slash Commands** ⚡
+📄 **Archivos**: 
+- `agent/slash_commands.py` - Parser, aliases y workflow de verificación
+- `agent-ui/src/hooks/useAIStreamHandler.tsx` - Interceptor frontend
+- `agent-ui/src/lib/slashCommands.ts` - Tipos e interfaces TypeScript
+
+**Funcionalidades**:
+- ✅ Ejecutar Quick Commands con sintaxis `/comando` desde el chat
+- ✅ Aliases intuitivos: `/novedades`, `/salud`, `/deploy`, `/tendencias`, `/digest`
+- ✅ Parsing de parámetros: `key=value` y shortcuts (`hoy`, `ayer`, `8h`)
+- ✅ Modo híbrido: REST directo o fallback a QueryAgent
+
+#### 2. **Prompts Canónicos Optimizados** 🎯
+**Estructura por comando**:
+```python
+CANONICAL_PROMPTS = {
+    "recent-incidents": {
+        "system_role": "Analista de incidencias y observabilidad",
+        "task": "Analizar incidencias y determinar si son accionables...",
+        "evidence_checks": ["health", "trends"],
+        "output_format": "markdown con secciones estructuradas"
+    }
+}
+```
+
+**Ventajas**:
+- Prompts específicos para cada intención
+- Criterios explícitos para NOTIFY vs FYI
+- Formato de salida estable para UI
+
+#### 3. **Workflow de Verificación con Evidencia** 📋
+**Función**: `run_verification_workflow(intent, args, base_report)`
+
+**Proceso**:
+1. Ejecuta comando base (ej: `recent-incidents`)
+2. Ejecuta checks adicionales según `evidence_checks`:
+   - Para `recent-incidents`: `health` + `trends`
+   - Para `health`: `recent-incidents` (últimas 24h)
+   - Para `post-deployment`: `trends` + `recent-incidents`
+3. Compila evidencia con `{source, query, result_summary, pass, timestamp}`
+4. Determina recomendación con `{level, reason, confidence}`
+
+**Ejemplo de evidencia**:
+```json
+{
+  "source": "health_check",
+  "query": "get_active_alerts()",
+  "result_summary": "0 alertas activas (0 critical, 0 major)",
+  "pass": true,
+  "timestamp": "2025-12-14T18:53:32Z"
+}
+```
+
+#### 4. **Sistema de Recomendaciones** 🔔
+**Niveles**:
+- **NOTIFY** (🔔 Accionable): Requiere atención inmediata
+- **FYI** (ℹ️ Informativo): Solo información, sin acción requerida
+
+**Criterios para NOTIFY**:
+- Alertas critical/major con servicios degradados
+- Aumento >50% en incidencias vs período anterior
+- Error rate o latency por encima de umbrales
+- Alertas críticas post-deployment
+
+**Criterios para FYI**:
+- Alertas minor/info sin impacto en salud
+- Tendencia estable o descendente
+- Sistema operando normalmente
+- Query duplicada (dedupe)
+
+#### 5. **Deduplicación Automática** 🔄
+**Implementación**:
+- Fingerprint estable: `hash(intent + params_sorted + report_keywords)`
+- Cache in-memory con TTL de 30 minutos
+- Capacidad: 100 entradas FIFO (`OrderedDict`)
+- Limpieza automática de entradas expiradas
+
+**Funciones**:
+- `check_dedupe()`: Verifica si existe en cache
+- `apply_dedupe_recommendation()`: Marca como FYI con nota
+
+#### 6. **API Endpoint Unificado** 🚀
+**Endpoint**: `POST /api/quick/command`
+
+**Request**:
+```json
+{
+  "command": "/novedades hoy"
+}
+```
+
+**Response**:
+```json
+{
+  "report": "# Incidencias Recientes...",
+  "evidence": [...],
+  "recommendation": {
+    "level": "fyi",
+    "reason": "Análisis completado sin situaciones críticas.",
+    "confidence": 0.5
+  },
+  "canonical_command": "recent-incidents"
+}
+```
+
+#### 7. **Frontend UI Mejorado** 🎨
+**Características**:
+- Interceptor de slash commands en el chat
+- Render de evidencia en bloque colapsable `<details>`
+- Sección destacada de recomendación con iconos
+- Formato Markdown profesional
+
+**Elementos visuales**:
+- ✅ / ⚠️ : Estado de checks
+- 🔔 / ℹ️ : Nivel de recomendación
+- Timestamps legibles en locale
+- Confianza en porcentaje
+
+---
+
 ## 🎉 Conclusión
 
-Se ha completado exitosamente la implementación de Quick Commands para el sistema de observabilidad. El sistema ahora ofrece:
+Se ha completado exitosamente la implementación de Quick Commands **v1.1** para el sistema de observabilidad. El sistema ahora ofrece:
 
+### v1.0 (Original)
 1. **5 comandos rápidos** para consultas comunes
 2. **API REST completa** con documentación inline
 3. **QueryAgent** para interpretar lenguaje natural
@@ -423,11 +551,20 @@ Se ha completado exitosamente la implementación de Quick Commands para el siste
 5. **Documentación completa** con ejemplos prácticos
 6. **Testing automatizado** para validación continua
 
-El sistema está **listo para producción** en su forma básica (sin análisis IA). Las mejoras de Fase 2 pueden implementarse incrementalmente sin afectar la funcionalidad actual.
+### v1.1 (Slash Commands) ✨
+7. **Slash Commands** para ejecución desde el chat (`/novedades`, `/salud`, etc.)
+8. **Sistema de Recomendaciones** NOTIFY vs FYI con confianza
+9. **Verificación con Evidencia** automática para reducir ruido
+10. **Deduplicación** con TTL de 30 min para evitar spam
+11. **Prompts Optimizados** específicos por intención
+12. **UI Mejorado** con evidencia colapsable y formato profesional
+13. **Guía Visual** con capturas de pantalla
+
+El sistema está **listo para producción** con reducción inteligente de ruido y notificaciones accionables. Las mejoras de Fase 2 pueden implementarse incrementalmente sin afectar la funcionalidad actual.
 
 ---
 
-**Última actualización**: 2025-12-11 01:20 UTC  
-**Estado**: ✅ COMPLETADO Y PROBADO  
-**Próximo hito**: Integración de análisis IA completo (Fase 2)
+**Última actualización**: 2025-12-14 19:00 UTC  
+**Estado**: ✅ v1.1 COMPLETADO Y PROBADO  
+**Próximo hito**: Integración de análisis IA completo + Métricas reales de Prometheus (Fase 2)
 
