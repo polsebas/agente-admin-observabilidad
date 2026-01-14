@@ -35,7 +35,7 @@ async def analyze_alert(alert: Dict[str, Any]) -> Dict[str, Any]:
     severity = alert_tools._classify_alert_severity_raw(
         alert_norm["labels"], alert_norm["annotations"]
     )
-    is_duplicate = alert_tools._deduplicate_alerts_raw(alert_norm["fingerprint"])
+    is_duplicate = await alert_tools._deduplicate_alerts_raw(alert_norm["fingerprint"])
     context = alert_tools._enrich_alert_context_raw(alert_norm)
 
     watchdog_summary = {
@@ -67,7 +67,7 @@ async def analyze_alert(alert: Dict[str, Any]) -> Dict[str, Any]:
     # Extraer solo el contenido del mensaje
     report_result = report_response.content if hasattr(report_response, 'content') else str(report_response)
 
-    alert_id = alert_tools.persist_alert(
+    alert_id = await alert_tools.persist_alert(
         {**alert_norm, **watchdog_summary},
         analysis_report=str(report_result),
         is_duplicate=is_duplicate,
@@ -125,7 +125,7 @@ observability_team = Team(
 - Latency P99 threshold: < {_config.latency_threshold_ms * 2}ms
 
 ## Servicios Monitoreados y Criticidad
-Servicios configurados: {', '.join(_config.monitored_services)}
+Servicios configurados: (Descubrimiento dinámico habilitado)
 
 Criticidad por tipo:
 - Critical: Servicios core (auth, payment, api-gateway) - impacto inmediato en usuarios/revenue

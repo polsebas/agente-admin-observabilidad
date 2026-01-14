@@ -26,7 +26,14 @@
    - Resultados alcanzados
    - Mejoras observables (antes/después)
    - Archivos modificados/creados
+   - Archivos modificados/creados
    - Próximos pasos
+
+4. **[Configuration Guide](CONFIGURATION.md)** ⚙️
+   - Guía completa de configuración (YAML + Env Vars)
+   - Estructura de config.yaml
+   - Variables de entorno disponibles
+
 
 ### Quick Commands
 
@@ -99,7 +106,8 @@ ObservabilityTeam (Líder)
 - `agent/agents/observability_team.py` - Coordinación del equipo
 
 ### Configuración
-- `agent/config.py` - Configuración centralizada (servicios, thresholds)
+- `config.yaml` - Archivo principal de configuración
+- `agent/config.py` - Lógica de carga (YAML + Env vars)
 - `.env` - Variables de entorno (API keys, URLs)
 
 ### Tools

@@ -1,0 +1,46 @@
+# Admin Agent Configuration
+
+# LLM Settings
+llm:
+  openai_model: "gpt-5-mini"
+  agno_model: "gpt-5-mini"
+
+# Observability Endpoints
+observability:
+  prometheus_url: "http://prometheus:9090"
+  loki_url: "http://loki:3100"
+  tempo_url: "http://tempo:3200"
+
+# Database Settings
+database:
+  postgres_host: "postgres"
+  postgres_port: 5432
+  postgres_user: "somed_admin"
+  postgres_db: "somed"
+  agno_db_path: "./agno.db"
+
+# Docker
+docker:
+  socket: "/var/run/docker.sock"
+
+# Alerting
+alerting:
+  cooldown_seconds: 300
+  dedup_window_minutes: 60
+  storage_enabled: true
+  webhook_urls: []
+
+# Telemetry
+telemetry:
+  agno_enabled: true
+
+# Monitoring Thresholds
+thresholds:
+  latency_ms: 500
+  error_rate: 0.01
+
+# Quick Commands
+quick_commands:
+  enabled: true
+  ai_analysis: false
+  daily_digest_time: "09:00"

@@ -11,11 +11,20 @@ from tools import loki_tool, prometheus_tool, tempo_tool
 _config = AdminAgentConfig()
 
 
+from tenacity import retry, stop_after_attempt, wait_exponential
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10), reraise=True)
+def _execute_with_retry(func, *args, **kwargs):
+    return func(*args, **kwargs)
+
+
 def _safe_call(func, *args, **kwargs) -> Dict[str, Any]:
     try:
-        return {"data": func(*args, **kwargs)}
+        data = _execute_with_retry(func, *args, **kwargs)
+        return {"data": data}
     except Exception as exc:
-        return {"error": str(exc)}
+        # En caso de fallo tras retries, devolvemos el error
+        return {"error": f"Failed after retries: {str(exc)}"}
 
 
 @tool
@@ -36,6 +45,12 @@ def query_prometheus_range(query: str, minutes: int = 15, step: str = "30s") -> 
 def get_service_health() -> Dict[str, Any]:
     """Estado up/down de servicios registrados."""
     return _safe_call(prometheus_tool.get_service_health)
+
+
+@tool
+def get_monitored_services() -> Dict[str, Any]:
+    """Descubre dinámicamente la lista de servicios monitoreados."""
+    return _safe_call(prometheus_tool.get_monitored_services)
 
 
 @tool
