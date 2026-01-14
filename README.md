@@ -49,6 +49,7 @@ cd agente-admin-observabilidad
 ```bash
 cp .env.example .env
 # Editar .env con tus claves
+# Opcional: Editar config.yaml para ajustes avanzados
 ```
 
 Obtener `OPENAI_API_KEY`: https://platform.openai.com/api-keys  
@@ -216,11 +217,13 @@ Usa AgnoUI en http://localhost:3002 o la API directamente:
 │       ObservabilityTeam                 │
 │  ┌────────────────────────────────────┐ │
 │  │  WatchdogAgent                     │ │
-│  │  → Classify, Dedupe, Enrich        │ │
+│  │  → Classify, Dedupe (Redis)        │ │
+│  │  → Enrich Context                  │ │
 │  └─────────────┬──────────────────────┘ │
 │                ▼                        │
 │  ┌────────────────────────────────────┐ │
 │  │  TriageAgent                       │ │
+│  │  → Dynamic Service Discovery       │ │
 │  │  → Correlate Metrics/Logs/Traces   │ │
 │  └─────────────┬──────────────────────┘ │
 │                ▼                        │
@@ -232,8 +235,8 @@ Usa AgnoUI en http://localhost:3002 o la API directamente:
                │
                ▼
 ┌─────────────────────────────────────────┐
-│  Storage: SQLite (alert_storage)        │
-│  + Markdown Reports                     │
+│  Storage: PostgreSQL (Async)            │
+│  Cache: Redis (Deduplication)           │
 └─────────────────────────────────────────┘
 ```
 
