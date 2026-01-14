@@ -769,66 +769,9 @@ def run_verification_workflow(
 # DEDUPLICACIÓN / AGRUPADO (COOLDOWN)
 # ============================================================================
 
-# Cache en memoria para dedupe (TTL 30 minutos por defecto)
-# En producción, esto debería estar en Redis o similar
-_dedupe_cache: OrderedDict[str, Dict[str, Any]] = OrderedDict()
+from agent.storage.redis import get_redis
+
 _DEDUPE_TTL_SECONDS = 30 * 60  # 30 minutos
-
-
-def _compute_fingerprint(intent: str, args: Dict[str, str], report_keywords: List[str]) -> str:
-    """
-    Calcula un fingerprint estable para un comando/resultado.
-    
-    Args:
-        intent: Comando canónico
-        args: Argumentos
-        report_keywords: Keywords extraídos del reporte (ej: servicios, severidades)
-        
-    Returns:
-        Fingerprint hexadecimal
-    """
-    # Ordenar args para consistencia
-    sorted_args = sorted(args.items())
-    sorted_keywords = sorted(report_keywords)
-    
-    # Crear string único
-    fingerprint_str = f"{intent}|{sorted_args}|{sorted_keywords}"
-    
-    # Hash
-    return hashlib.sha256(fingerprint_str.encode()).hexdigest()[:16]
-
-
-def _extract_keywords_from_report(report: str) -> List[str]:
-    """
-    Extrae keywords relevantes del reporte para dedupe.
-    
-    Args:
-        report: Texto del reporte
-        
-    Returns:
-        Lista de keywords
-    """
-    keywords = []
-    
-    # Severidades
-    if "critical" in report.lower():
-        keywords.append("critical")
-    if "major" in report.lower():
-        keywords.append("major")
-    
-    # Servicios (patrón simple)
-    service_pattern = r'servicio:\s*(\w+[-\w]*)'
-    matches = re.findall(service_pattern, report.lower())
-    keywords.extend(matches[:3])  # Max 3 servicios
-    
-    # Tendencias
-    if "aumento" in report.lower() or "incremento" in report.lower():
-        keywords.append("trend_up")
-    if "disminución" in report.lower() or "descenso" in report.lower():
-        keywords.append("trend_down")
-    
-    return keywords
-
 
 def check_dedupe(intent: str, args: Dict[str, str], report: str) -> Tuple[bool, Optional[str]]:
     """
@@ -842,39 +785,31 @@ def check_dedupe(intent: str, args: Dict[str, str], report: str) -> Tuple[bool, 
     Returns:
         Tupla de (is_duplicate, cached_report_if_duplicate)
     """
-    # Limpiar cache expirado
-    now = datetime.now(timezone.utc)
-    expired_keys = []
-    for key, entry in _dedupe_cache.items():
-        if (now - entry["timestamp"]).total_seconds() > _DEDUPE_TTL_SECONDS:
-            expired_keys.append(key)
-    for key in expired_keys:
-        del _dedupe_cache[key]
+    redis = get_redis()
     
     # Calcular fingerprint
     keywords = _extract_keywords_from_report(report)
     fingerprint = _compute_fingerprint(intent, args, keywords)
+    key = f"dedupe:{fingerprint}"
     
-    # Buscar en cache
-    if fingerprint in _dedupe_cache:
-        cached_entry = _dedupe_cache[fingerprint]
-        time_since = (now - cached_entry["timestamp"]).total_seconds()
-        
-        # Si está dentro del TTL, es duplicado
-        if time_since < _DEDUPE_TTL_SECONDS:
-            return (True, cached_entry["report"])
+    # Buscar en redis
+    cached_data = redis.get(key)
+    if cached_data:
+        try:
+            cached_entry = json.loads(cached_data)
+            return (True, cached_entry.get("report"))
+        except json.JSONDecodeError:
+            pass
     
     # No es duplicado, agregar al cache
-    _dedupe_cache[fingerprint] = {
+    now = datetime.now(timezone.utc)
+    entry = {
         "intent": intent,
         "args": args,
         "report": report,
-        "timestamp": now
+        "timestamp": now.isoformat()
     }
-    
-    # Limitar tamaño del cache a 100 entradas (FIFO)
-    if len(_dedupe_cache) > 100:
-        _dedupe_cache.popitem(last=False)
+    redis.setex(key, _DEDUPE_TTL_SECONDS, json.dumps(entry))
     
     return (False, None)
 

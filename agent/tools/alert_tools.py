@@ -41,28 +41,28 @@ def classify_alert_severity(
     return _classify_alert_severity_raw(labels, annotations)
 
 
-def _check_alert_history_raw(fingerprint: str, window_minutes: int | None = None) -> List[Dict[str, Any]]:
+async def _check_alert_history_raw(fingerprint: str, window_minutes: int | None = None) -> List[Dict[str, Any]]:
     """Helper interno: Devuelve alertas recientes con mismo fingerprint."""
     minutes = window_minutes or _config.alert_dedup_window_minutes
-    return alert_storage.get_recent_by_fingerprint(fingerprint, minutes)
+    return await alert_storage.get_recent_by_fingerprint(fingerprint, minutes)
 
 
-def _deduplicate_alerts_raw(fingerprint: str, window_minutes: int | None = None) -> bool:
+async def _deduplicate_alerts_raw(fingerprint: str, window_minutes: int | None = None) -> bool:
     """Helper interno: Indica si la alerta es duplicada en la ventana dada."""
-    recent = _check_alert_history_raw(fingerprint, window_minutes)
+    recent = await _check_alert_history_raw(fingerprint, window_minutes)
     return len(recent) > 0
 
 
 @tool
-def check_alert_history(fingerprint: str, window_minutes: int | None = None) -> List[Dict[str, Any]]:
+async def check_alert_history(fingerprint: str, window_minutes: int | None = None) -> List[Dict[str, Any]]:
     """Devuelve alertas recientes con mismo fingerprint."""
-    return _check_alert_history_raw(fingerprint, window_minutes)
+    return await _check_alert_history_raw(fingerprint, window_minutes)
 
 
 @tool
-def deduplicate_alerts(fingerprint: str, window_minutes: int | None = None) -> bool:
+async def deduplicate_alerts(fingerprint: str, window_minutes: int | None = None) -> bool:
     """Indica si la alerta es duplicada en la ventana dada."""
-    return _deduplicate_alerts_raw(fingerprint, window_minutes)
+    return await _deduplicate_alerts_raw(fingerprint, window_minutes)
 
 
 def _enrich_alert_context_raw(alert: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -91,7 +91,7 @@ def enrich_alert_context(alert: Optional[Dict[str, Any]] = None) -> Dict[str, An
     return _enrich_alert_context_raw(alert)
 
 
-def persist_alert(
+async def persist_alert(
     alert: Dict[str, Any],
     analysis_report: Optional[str] = None,
     is_duplicate: bool = False,
@@ -99,8 +99,9 @@ def persist_alert(
     """Guarda la alerta en storage y devuelve el ID asignado."""
     alert_id = alert.get("fingerprint") or str(uuid.uuid4())
     fingerprint = alert.get("fingerprint", alert_id)
+    # Ensure correct datetime object in DB
     received_at = datetime.datetime.utcnow()
-    alert_storage.save_alert(
+    await alert_storage.save_alert(
         alert_id=alert_id,
         fingerprint=fingerprint,
         status=alert.get("status", "unknown"),
@@ -111,5 +112,3 @@ def persist_alert(
         is_duplicate=is_duplicate,
     )
     return alert_id
-
-

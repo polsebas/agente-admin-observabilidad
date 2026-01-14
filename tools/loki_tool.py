@@ -7,15 +7,13 @@ from typing import Any, Dict, List, Optional
 import requests
 
 from agent.config import AdminAgentConfig
+from agent.utils.http_client import shared_client
 
 _config = AdminAgentConfig()
-_session = requests.Session()
-_session.headers.update({"Content-Type": "application/json"})
-
 
 def _loki_query(path: str, params: Dict[str, Any]) -> Dict[str, Any]:
     url = f"{_config.loki_url}{path}"
-    resp = _session.get(url, params=params, timeout=10)
+    resp = shared_client.get(url, params=params)
     resp.raise_for_status()
     return resp.json()
 

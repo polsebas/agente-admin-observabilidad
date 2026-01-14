@@ -9,9 +9,10 @@ from typing import Any, Dict, List, Optional
 from prometheus_api_client import PrometheusConnect
 
 from agent.config import AdminAgentConfig
+from agent.utils.http_client import shared_client
 
 _config = AdminAgentConfig()
-_prom = PrometheusConnect(url=_config.prometheus_url, disable_ssl=True)
+_prom = PrometheusConnect(url=_config.prometheus_url, disable_ssl=True, session=shared_client)
 
 
 def query_instant(query: str) -> Any:
@@ -29,9 +30,29 @@ def query_range(query: str, start: datetime, end: datetime, step: str) -> Any:
     )
 
 
+
+def get_monitored_services() -> List[str]:
+    """Dinámicamente descubre servicios monitoreados usando query 'up'."""
+    try:
+        # Buscamos métricas 'up' que tengan etiqueta 'service' 
+        # (asumiendo convención de etiquetado estándar)
+        res = query_instant('count(up) by (service)')
+        services = []
+        if res and isinstance(res, list):
+            for serie in res:
+                svc = serie.get("metric", {}).get("service")
+                if svc:
+                    services.append(svc)
+        return services
+    except Exception as e:
+        print(f"Error discovering services: {e}")
+        return []
+
+
 def get_service_health() -> List[Dict[str, Any]]:
-    """Devuelve estado up/down de los servicios configurados."""
-    res = query_instant('up{job=~"auth-service|stock-service|billing-service|clients-service|logistics-service|reports-service|api-gateway|ia-service"}')
+    """Devuelve estado up/down de los servicios descubiertos dinámicamente."""
+    # En lugar de regex hardcoded, consultamos todo lo que tenga label service
+    res = query_instant('up{service!=""}')
     return res
 
 

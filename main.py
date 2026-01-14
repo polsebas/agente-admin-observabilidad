@@ -45,10 +45,15 @@ app.add_middleware(
 app.include_router(alerts_router, prefix="/api")
 app.include_router(quick_commands_router, prefix="/api")
 
+# Prometheus Metrics
+from prometheus_client import make_asgi_app
+metrics_app = make_asgi_app()
+app.mount("/metrics", metrics_app)
+
 
 @app.on_event("startup")
 async def startup_event() -> None:
-    alert_storage.init_db()
+    await alert_storage.init_db()
 
 
 if __name__ == "__main__":

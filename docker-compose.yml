@@ -7,7 +7,7 @@ services:
       - GRAFANA_SERVICE_ACCOUNT_TOKEN=${GRAFANA_API_KEY:?set GRAFANA_API_KEY}
     ports:
       - "8001:8000"
-    command: ["-t", "sse", "-addr", ":8000"]
+    command: [ "-t", "sse", "-addr", ":8000" ]
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -23,10 +23,20 @@ services:
       - LOKI_MCP_URL=${LOKI_MCP_URL:-http://grafana-mcp:8000}
       - TEMPO_MCP_URL=${TEMPO_MCP_URL:-http://grafana-mcp:8000}
       - DB_FILE=/data/agno.db
+      - REDIS_URL=redis://redis:6379/0
     volumes:
       - agno-data:/data
+      - ./config.yaml:/app/config.yaml
     ports:
       - "7777:7777"
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6379:6379"
     depends_on:
       - grafana-mcp
 
@@ -44,4 +54,5 @@ services:
 
 volumes:
   agno-data:
+
 

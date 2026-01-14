@@ -23,12 +23,12 @@ triage_agent = Agent(
     add_history_to_context=True,
     num_history_runs=2,
     dependencies={
-        "monitored_services": _config.monitored_services,
         "latency_threshold_ms": _config.latency_threshold_ms,
         "error_rate_threshold": _config.error_rate_threshold,
     },
     add_dependencies_to_context=True,
     tools=[
+        observability_tools.get_monitored_services,
         observability_tools.query_prometheus_metrics,
         observability_tools.query_prometheus_range,
         observability_tools.get_service_health,
@@ -41,6 +41,7 @@ triage_agent = Agent(
     ],
     instructions=[
         "Sos el agente de correlación técnica. Tu objetivo es encontrar la causa raíz de la alerta usando métricas, logs y traces.",
+        "PASO 0: Descubrimiento - Si no conoces el servicio, ejecutá get_monitored_services() para ver qué servicios están activos.",
         "PASO 1: Determinar timeframe - usá startsAt de la alerta y analizá los últimos 15 minutos (ajustable según severidad: critical=30m, major=15m, minor=10m)",
         "PASO 2: Consultar métricas - obtené error_rate (5xx), latency P95, status del servicio con Prometheus",
         "PASO 3: Buscar logs - filtrá logs de error del servicio en Loki con query '{service=\"X\"} |= \"ERROR\" or \"FATAL\"'",
